@@ -5,6 +5,15 @@ import {
   DirectionsRenderer,
 } from "@react-google-maps/api";
 
+const Loader = () => {
+  return (
+    <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-800 bg-opacity-50 z-50">
+      <p className="text-white">Hold on while we fetch the routes...</p>
+      <div className="spinner"></div>
+    </div>
+  );
+};
+
 function App() {
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_MAP_API_KEY,
@@ -14,6 +23,7 @@ function App() {
   const [directionsService, setDirectionsService] = useState(null);
   const [directionsResponse, setDirectionsResponse] = useState(null);
   const [stopInfo, setStopInfo] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
@@ -78,6 +88,7 @@ function App() {
             Promise.all(promises).then(() => {
               setStopInfo([...stopInfo]);
               setDirectionsResponse(result);
+              setLoading(false);
             });
           } else {
             console.error("Directions request failed due to " + status);
@@ -90,7 +101,7 @@ function App() {
 
     return () => {
       clearInterval(intervalId);
-    }
+    };
   }, [directionsService, userLocation]);
 
   const reverseGeocode = async (lat, lng) => {
@@ -150,6 +161,7 @@ function App() {
 
   return (
     <Fragment>
+      {loading && <Loader />}
       <div className="relative">
         <div
           className="absolute top-0 left-0 m-4 p-4 bg-white rounded-md shadow-md z-10 overflow-y-auto"
