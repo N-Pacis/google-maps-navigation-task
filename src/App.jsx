@@ -1,5 +1,9 @@
 import { Fragment, useState, useEffect } from "react";
-import { GoogleMap, useJsApiLoader, DirectionsRenderer } from "@react-google-maps/api";
+import {
+  GoogleMap,
+  useJsApiLoader,
+  DirectionsRenderer,
+} from "@react-google-maps/api";
 
 function App() {
   const { isLoaded, loadError } = useJsApiLoader({
@@ -7,10 +11,9 @@ function App() {
   });
 
   const [userLocation, setUserLocation] = useState(null);
-  const [currentPositionName, setCurrentPositionName] = useState("");
-  const [stopNames, setStopNames] = useState([]);
   const [directionsService, setDirectionsService] = useState(null);
   const [directionsResponse, setDirectionsResponse] = useState(null);
+  const [stopInfo, setStopInfo] = useState([]);
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
@@ -33,58 +36,60 @@ function App() {
   }, [isLoaded, loadError]);
 
   useEffect(() => {
-    if (isLoaded && directionsService && userLocation) {
-      const markers = getMarkers();
-      const sortedMarkers = markers.slice().sort((a, b) => a.order - b.order);
-      const waypoints = sortedMarkers.slice(1, -1).map((marker) => ({
-        location: marker.position,
-        stopover: true,
-      }));
+    const refreshData = () => {
+      if (isLoaded && directionsService && userLocation) {
+        const markers = getMarkers();
+        const sortedMarkers = markers.sort((a, b) => a.order - b.order);
+        const waypoints = sortedMarkers.slice(0, -1).map((marker) => ({
+          location: marker.position,
+          stopover: true,
+        }));
+        const origin = userLocation;
+        const destination = sortedMarkers[sortedMarkers.length - 1].position;
 
-      const origin = userLocation;
-      const destination = sortedMarkers[sortedMarkers.length - 1].position;
+        const request = {
+          origin,
+          destination,
+          waypoints,
+          travelMode: "DRIVING",
+        };
 
-      const request = {
-        origin,
-        destination,
-        waypoints,
-        travelMode: "DRIVING",
-      };
-
-      directionsService.route(request, (result, status) => {
-        if (status === "OK") {
-          const legs = result.routes[0].legs;
-          const routes = [];
-          const stopNames = [];
-
-          legs.forEach((leg, index) => {
-            if (index === 0) {
-              reverseGeocode(leg.start_location.lat(), leg.start_location.lng())
-                .then((data) =>
-                  setCurrentPositionName(data.results[0].formatted_address)
-                )
+        directionsService.route(request, (result, status) => {
+          if (status === "OK") {
+            const legs = result.routes[0].legs;
+            const stopInfo = [];
+            const promises = legs.map((leg, index) => {
+              return reverseGeocode(
+                leg.end_location.lat(),
+                leg.end_location.lng()
+              )
+                .then((data) => {
+                  const eta = leg.duration.text;
+                  const distance = leg.distance.text;
+                  const name = `${data?.results[0]?.formatted_address} (${sortedMarkers[index].name})`;
+                  const order = sortedMarkers[index].order;
+                  stopInfo[index] = { name, eta, order, distance };
+                })
                 .catch((error) =>
-                  console.error("Error getting current position name: ", error)
+                  console.error("Error getting stop name: ", error)
                 );
-            }
+            });
 
-            reverseGeocode(leg.end_location.lat(), leg.end_location.lng())
-              .then((data) => {
-                stopNames[index] = data.results[0].formatted_address;
-                setStopNames([...stopNames]);
-              })
-              .catch((error) =>
-                console.error("Error getting stop name: ", error)
-              );
+            Promise.all(promises).then(() => {
+              setStopInfo([...stopInfo]);
+              setDirectionsResponse(result);
+            });
+          } else {
+            console.error("Directions request failed due to " + status);
+          }
+        });
+      }
+    };
 
-            routes[index] = { distance: leg.distance.value, duration: leg.duration.value };
-          });
+    const intervalId = setInterval(refreshData, 30000);
 
-          setDirectionsResponse(result);
-        } else {
-          console.error("Directions request failed due to " + status);
-        }
-      });
+    return () => {
+      clearInterval(intervalId);
     }
   }, [directionsService, userLocation]);
 
@@ -99,83 +104,97 @@ function App() {
   };
 
   const getMarkers = () => [
-    userLocation && {
-      id: 1,
-      name: "Your Location",
-      position: userLocation,
-      order: 0,
-    },
     {
-      id: 2,
-      name: "Stop A",
+      id: 1,
+      name: "Stop B",
       position: { lat: -1.939826787816454, lng: 30.0445426438232 },
       order: 1,
     },
     {
-      id: 3,
-      name: "Stop B",
+      id: 2,
+      name: "Stop C",
       position: { lat: -1.9355377074007851, lng: 30.060163829002217 },
       order: 2,
     },
     {
-      id: 4,
-      name: "Stop C",
+      id: 3,
+      name: "Stop D",
       position: { lat: -1.9358808342336546, lng: 30.08024820994666 },
       order: 3,
     },
     {
-      id: 5,
-      name: "Stop D",
+      id: 4,
+      name: "Stop E",
       position: { lat: -1.9489196023037583, lng: 30.092607828989397 },
       order: 4,
     },
     {
-      id: 6,
-      name: "Stop E",
+      id: 5,
+      name: "Stop F",
       position: { lat: -1.9592132952818164, lng: 30.106684061788073 },
       order: 5,
     },
     {
-      id: 7,
-      name: "Stop F",
+      id: 6,
+      name: "Stop G",
       position: { lat: -1.9487480402200394, lng: 30.126596781356923 },
       order: 6,
     },
     {
-      id: 8,
-      name: "Stop G",
+      id: 7,
+      name: "Stop H",
       position: { lat: -1.9365670876910166, lng: 30.13020167024439 },
       order: 7,
-    }
+    },
   ];
 
   return (
     <Fragment>
-      <div style={{ margin: "1% 5%" }}>
-        {stopNames.map((name, index) => (
-          <div key={index}>
-            <div>
-              {index === 0
-                ? `${currentPositionName} - ${name}`
-                : `${stopNames[index - 1]} - ${name}`}
+      <div className="relative">
+        <div
+          className="absolute top-0 left-0 m-4 p-4 bg-white rounded-md shadow-md z-10 overflow-y-auto"
+          style={{ maxWidth: "300px", maxHeight: "calc(100vh - 2rem)" }}
+        >
+          {stopInfo.map((info, index) => (
+            <div key={index} className="mb-2 last:mb-0">
+              <div className="bg-gray-200 rounded-md p-2">
+                {index === 0 ? (
+                  <div className="font-semibold text-green-600">
+                    Your Location - {info.name}
+                  </div>
+                ) : (
+                  <div className="font-semibold">
+                    {stopInfo[index - 1].name} - {info.name}
+                  </div>
+                )}
+                <div className="text-sm text-gray-600">
+                  Distance: {info.distance}
+                </div>
+                <div className="text-sm text-gray-600">Time: {info.eta}</div>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-      <div id="map" style={{ height: "80vh", width: "90%", margin: "1% 5%" }}>
-        {isLoaded && !loadError && userLocation ? (
-          <GoogleMap
-            center={userLocation}
-            zoom={15}
-            mapContainerStyle={{ width: "100%", height: "80vh" }}
-          >
-            {directionsResponse && (
-              <DirectionsRenderer directions={directionsResponse} />
-            )}
-          </GoogleMap>
-        ) : (
-          <div>Error loading map</div>
-        )}
+          ))}
+        </div>
+
+        <div
+          id="map"
+          style={{ height: "100vh", width: "100%" }}
+          className="w-full h-screen"
+        >
+          {isLoaded && !loadError && userLocation ? (
+            <GoogleMap
+              center={userLocation}
+              zoom={13}
+              mapContainerStyle={{ width: "100%", height: "100vh" }}
+            >
+              {directionsResponse && (
+                <DirectionsRenderer directions={directionsResponse} />
+              )}
+            </GoogleMap>
+          ) : (
+            <div>Error loading map</div>
+          )}
+        </div>
       </div>
     </Fragment>
   );
