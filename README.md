@@ -1,6 +1,8 @@
 # Real Time Google Maps Directions
 
-Real Time Google Maps Directions is a web application built with React and the Google Maps JavaScript API. It provides users (Bus Drivers especially) with real-time directions and stop information based on their current location and predefined stops.
+Real Time Google Maps Directions is a web application designed for bus drivers, providing them with real-time directions and stop information. It's built using React and the Google Maps JavaScript API. With this tool, bus drivers can efficiently navigate their routes, receiving live updates on directions and stops based on their current location and predefined destinations. It offers a user-friendly interface, making it convenient for drivers to access essential information while on the road.
+
+The app has predefined stop points, and it uses the current user's location as the origin and the last item in the predefined stop points as the destination. The app then feeds all the stop points, origin, and destination to the directions service API to calculate a suitable route for the driver. The directions service also calculates ETA and distance. We then feed the coordinates of the stop points to a reverse geocode API to get human-readable names for efficient display. Finally, we display all stop points and their respective ETA and distance.
 
 ## Features
 
